@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	
+	<artifactId>repos-indexing-graphdb</artifactId>
+	<version>1-SNAPSHOT</version>
+	<packaging>jar</packaging>
+	
+	<name>repos-indexing-graphdb</name>
+	<url>http://www.repos.se/</url>
+	
+	<parent>
+		<groupId>se.repos</groupId>
+		<artifactId>maven-parent</artifactId>
+		<version>2.5</version>
+		<relativePath/>
+	</parent>
+	
+	<scm>
+		<developerConnection>scm:svn:https://labs.repos.se/svn/${project.artifactId}/trunk</developerConnection>
+		<tag>HEAD</tag>
+	</scm>
+
+	<issueManagement>
+		<system>Trac</system>
+		<url>https://labs.repos.se/trac/</url>
+	</issueManagement>
+
+	<repositories>
+		<repository>
+			<id>repos.open.repo</id>
+			<name>Repos Open Repository</name>
+			<url>http://reposserver.sourceforge.net/maven/</url>
+		</repository>
+		<repository>
+			<id>mvn-neo4j</id>
+			<url>http://m2.neo4j.org/content/groups/everything</url>  
+		</repository>		
+	</repositories>
+
+	<dependencies>
+		<dependency> 
+			<groupId>se.simonsoft</groupId>
+			<artifactId>cms-indexing-xml</artifactId>  
+			<version>0.14-SNAPSHOT</version>
+		</dependency>
+		<dependency>
+			<groupId>org.neo4j</groupId>
+			<artifactId>neo4j-rest-graphdb</artifactId>  
+			<version>2.0.1</version>
+		</dependency>
+		<!-- logging backend for unit tests: log debug and above to console, no need for config file -->
+		<dependency>
+			<groupId>ch.qos.logback</groupId>
+			<artifactId>logback-classic</artifactId>
+			<version>${logback-version}</version>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+	
+	<build>
+		<pluginManagement>
+			<plugins>
+				<plugin>
+					<artifactId>maven-compiler-plugin</artifactId>
+					<configuration>
+						<source>1.7</source>
+						<target>1.7</target>
+						<encoding>UTF-8</encoding>
+					</configuration>
+				</plugin>
+			</plugins>
+		</pluginManagement>
+	</build>
+	
+</project>
