@@ -1,0 +1,108 @@
+Index: pom.xml
+===================================================================
+--- pom.xml	(revision 733)
++++ pom.xml	(working copy)
+@@ -76,9 +76,14 @@
+ 			<version>0.11.8</version>
+ 		</dependency>
+ 		<dependency>
++			<groupId>se.repos</groupId>
++			<artifactId>repos-indexing-graphdb</artifactId>
++			<version>1-SNAPSHOT</version>
++		</dependency>		
++		<dependency>
+ 			<groupId>se.simonsoft</groupId>
+ 			<artifactId>cms-backend-svnkit</artifactId>
+-			<version>1.1.1</version>
++			<version>1.1.2</version>
+ 		</dependency>
+ 		<dependency>
+ 			<groupId>se.simonsoft</groupId>
+@@ -118,6 +123,18 @@
+ 	</dependencies>
+ 	
+ 	<build>
++		<pluginManagement>
++			<plugins>
++				<plugin>
++					<artifactId>maven-compiler-plugin</artifactId>
++					<configuration>
++						<source>1.7</source>
++						<target>1.7</target>
++						<encoding>UTF-8</encoding>
++					</configuration>
++				</plugin>
++			</plugins>
++		</pluginManagement>
+ 		<plugins>
+ 			<plugin>
+ 				<artifactId>maven-assembly-plugin</artifactId>
+Index: src/main/java/se/repos/indexing/standalone/config/IndexingHandlersModuleXml.java
+===================================================================
+--- src/main/java/se/repos/indexing/standalone/config/IndexingHandlersModuleXml.java	(revision 733)
++++ src/main/java/se/repos/indexing/standalone/config/IndexingHandlersModuleXml.java	(working copy)
+@@ -5,6 +5,9 @@
+ 
+ import se.repos.indexing.IndexingItemHandler;
+ import se.repos.indexing.fulltext.HandlerFulltext;
++import se.repos.se.indexing.graphdb.neo4j.Neo4jIndexedAnalysis;
++import se.repos.se.indexing.graphdb.neo4j.Neo4jIndexingItemHandler;
++import se.repos.se.indexing.graphdb.neo4j.Neo4jIndexingItemXmlElementHandler;
+ import se.simonsoft.cms.indexing.xml.IndexAdminXml;
+ import se.simonsoft.cms.indexing.xml.IndexingHandlersXml;
+ import se.simonsoft.cms.indexing.xml.XmlIndexFieldExtraction;
+@@ -35,6 +38,10 @@
+ 		Multibinder<XmlIndexFieldExtraction> xmlExtraction = Multibinder.newSetBinder(binder(), XmlIndexFieldExtraction.class);
+ 		IndexingHandlersXml.configureXmlFieldExtraction(xmlExtraction);
+ 		
++		handlers.addBinding().to(Neo4jIndexingItemHandler.class);
++		xmlExtraction.addBinding().to(Neo4jIndexingItemXmlElementHandler.class);
++		handlers.addBinding().to(Neo4jIndexedAnalysis.class);
++		
+ 		bind(XmlMatchingFieldExtractionSource.class).to(XmlMatchingFieldExtractionSourceDefault.class);
+ 	}
+ 
+Index: src/main/java/se/repos/indexing/standalone/config/ParentModule.java
+===================================================================
+--- src/main/java/se/repos/indexing/standalone/config/ParentModule.java	(revision 733)
++++ src/main/java/se/repos/indexing/standalone/config/ParentModule.java	(working copy)
+@@ -8,6 +8,7 @@
+ 
+ import se.repos.indexing.scheduling.IndexingSchedule;
+ import se.repos.indexing.scheduling.IndexingScheduleBlockingOnly;
++import se.repos.se.indexing.graphdb.neo4j.Neo4jRestAPIProvider;
+ import se.simonsoft.cms.backend.svnkit.svnlook.CmsRepositoryLookupSvnkitLook;
+ import se.simonsoft.cms.backend.svnkit.svnlook.SvnlookClientProviderStateless;
+ import se.simonsoft.cms.item.info.CmsRepositoryLookup;
+@@ -32,6 +33,9 @@
+ 		// this is an all-inspection context
+ 		bind(SVNLookClient.class).toProvider(SvnlookClientProviderStateless.class);
+ 		bind(CmsRepositoryLookup.class).to(CmsRepositoryLookupSvnkitLook.class);
++		
++		// graphdb
++		bind(org.neo4j.rest.graphdb.RestAPI.class).toProvider(Neo4jRestAPIProvider.class); // TODO as singleton?
+ 	}
+ 	
+ }
+Index: src/main/resources/log4j2.xml
+===================================================================
+--- src/main/resources/log4j2.xml	(revision 733)
++++ src/main/resources/log4j2.xml	(working copy)
+@@ -14,6 +14,17 @@
+ 		</Console>
+ 	</Appenders>
+ 	<Loggers>
++		<!-- neo4j dev -->
++		<Logger name="se.simonsoft.cms.backend" level="warn">
++			<AppenderRef ref="Console"/>
++		</Logger>
++		<Logger name="se.repos.indexing" level="info">
++			<AppenderRef ref="Console"/>
++		</Logger>
++		<Logger name="se.simonsoft.cms.indexing" level="info">
++			<AppenderRef ref="Console"/>
++		</Logger>
++		<!-- end neo4j dev -->
+ 		<Root level="${level}">
+ 			<AppenderRef ref="Console" />
+ 		</Root>

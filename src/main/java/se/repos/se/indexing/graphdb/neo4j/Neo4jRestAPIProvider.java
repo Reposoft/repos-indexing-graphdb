@@ -40,7 +40,7 @@ public class Neo4jRestAPIProvider implements Provider<RestAPI> {
 		Iterator<Map<String, Object>> iterator = result.iterator();
 		if (iterator.hasNext()) {
 			Map<String, Object> row = iterator.next();
-			logger.info("Connected to neo4j. Got {} nodes already.",
+			logger.trace("Connected to neo4j. Got {} nodes already.",
 					row.get("total"));
 		}
 	}

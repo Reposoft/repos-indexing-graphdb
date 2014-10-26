@@ -1,0 +1,238 @@
+SVN-fs-dump-format-version: 2
+
+UUID: f9c1c063-f47f-42cb-b29a-e40057b29c0c
+
+Revision-number: 0
+Prop-content-length: 56
+Content-length: 56
+
+K 8
+svn:date
+V 27
+2014-10-26T06:00:35.708046Z
+PROPS-END
+
+Revision-number: 1
+Prop-content-length: 118
+Content-length: 118
+
+K 10
+svn:author
+V 4
+test
+K 8
+svn:date
+V 27
+2014-10-26T06:07:50.104289Z
+K 7
+svn:log
+V 19
+A single Checksheet
+PROPS-END
+
+Node-path: 
+Node-kind: dir
+Node-action: change
+Prop-content-length: 40
+Content-length: 40
+
+K 10
+svn:ignore
+V 9
+.project
+
+PROPS-END
+
+
+Node-path: Unit1
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Node-path: templates
+Node-kind: dir
+Node-action: add
+Prop-content-length: 10
+Content-length: 10
+
+PROPS-END
+
+
+Node-path: templates/simple1.xml
+Node-kind: file
+Node-action: add
+Prop-content-length: 45
+Text-content-length: 347
+Text-content-md5: d99dc5dd1fd4fef2a9575c26fe00d47a
+Text-content-sha1: bde6cf2c040af2c3c2e95000f1541ddd4f44f613
+Content-length: 392
+
+K 13
+svn:mime-type
+V 10
+text/plain
+PROPS-END
+<checksheet>
+	<title>Simple1</title>
+	<description>A small checksheet</description>
+	<rules>
+		<rule>
+			<summary>Verify that the system is online</summary>
+		</rule>
+		<rule>
+			<summary>Log in to the system</summary>
+		</rule>
+		<rule>
+			<summary>There should be a "Sample1" headline on the dashboard</summary>
+		</rule>
+	</rules>
+</checksheet>
+
+Revision-number: 2
+Prop-content-length: 165
+Content-length: 165
+
+K 10
+svn:author
+V 4
+test
+K 8
+svn:date
+V 27
+2014-10-26T06:09:28.608054Z
+K 7
+svn:log
+V 66
+An instance ready for running. This could be gen 1 of the product.
+PROPS-END
+
+Node-path: Unit1/simple1.xml
+Node-kind: file
+Node-action: add
+Node-copyfrom-rev: 1
+Node-copyfrom-path: templates/simple1.xml
+Text-copy-source-md5: d99dc5dd1fd4fef2a9575c26fe00d47a
+Text-copy-source-sha1: bde6cf2c040af2c3c2e95000f1541ddd4f44f613
+
+
+Revision-number: 3
+Prop-content-length: 206
+Content-length: 206
+
+K 10
+svn:author
+V 4
+test
+K 8
+svn:date
+V 27
+2014-10-26T06:19:02.566618Z
+K 7
+svn:log
+V 106
+Executed this checksheet for gen 1 product but failed to log in so the last actions couldn't be performed.
+PROPS-END
+
+Node-path: Unit1/simple1.xml
+Node-kind: file
+Node-action: change
+Text-content-length: 412
+Text-content-md5: 2d0631db24ac54aac9a25544e253aeab
+Text-content-sha1: c2e88d64b3312dae10ca9dbed8f4856a6a1e5e52
+Content-length: 412
+
+<checksheet>
+	<title>Simple1</title>
+	<description>A small checksheet</description>
+	<rules>
+		<rule>
+			<summary>Verify that the system is online</summary>
+			<reply>yes</reply>
+		</rule>
+		<rule>
+			<summary>Log in to the system</summary>
+			<reply>no</reply>
+		</rule>
+		<rule>
+			<summary>There should be a "Sample1" headline on the dashboard</summary>
+			<reply>n/a</reply>
+		</rule>
+	</rules>
+</checksheet>
+
+Revision-number: 4
+Prop-content-length: 174
+Content-length: 174
+
+K 10
+svn:author
+V 4
+test
+K 8
+svn:date
+V 27
+2014-10-26T06:21:29.275842Z
+K 7
+svn:log
+V 75
+Save as, to start a new checksheet template but reuse the first two checks.
+PROPS-END
+
+Node-path: templates/simple2.xml
+Node-kind: file
+Node-action: add
+Node-copyfrom-rev: 3
+Node-copyfrom-path: templates/simple1.xml
+Text-copy-source-md5: d99dc5dd1fd4fef2a9575c26fe00d47a
+Text-copy-source-sha1: bde6cf2c040af2c3c2e95000f1541ddd4f44f613
+
+
+Revision-number: 5
+Prop-content-length: 175
+Content-length: 175
+
+K 10
+svn:author
+V 4
+test
+K 8
+svn:date
+V 27
+2014-10-26T06:24:25.611610Z
+K 7
+svn:log
+V 76
+Keeps the first two rules, then adds one with an inline tag and another one.
+PROPS-END
+
+Node-path: templates/simple2.xml
+Node-kind: file
+Node-action: change
+Text-content-length: 397
+Text-content-md5: 231c9d94a2be7048cad643b30c4b85bf
+Text-content-sha1: dc267b23002d68fce3720b908634d1fb1670e839
+Content-length: 397
+
+<checksheet>
+	<title>Simple2</title>
+	<description>A small checksheet</description>
+	<rules>
+		<rule>
+			<summary>Verify that the system is online</summary>
+		</rule>
+		<rule>
+			<summary>Log in to the system</summary>
+		</rule>
+		<rule>
+			<summary>Click the tab <label>Simple2</label></summary>
+		</rule>
+		<rule>
+			<summary>The tab should list items</summary>
+		</rule>
+	</rules>
+</checksheet>
+
