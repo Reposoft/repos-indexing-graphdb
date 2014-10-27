@@ -14,6 +14,9 @@ import org.neo4j.rest.graphdb.util.QueryResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * @deprecated This java API seems to have gone out of fashion.
+ */
 public class Neo4jRestAPIProvider implements Provider<RestAPI> {
 
 	private final Logger logger = LoggerFactory.getLogger(this.getClass());

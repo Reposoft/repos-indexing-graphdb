@@ -6,7 +6,10 @@ import java.util.Map;
 import java.util.Set;
 
 import javax.inject.Inject;
+import javax.inject.Named;
 import javax.inject.Provider;
+import javax.ws.rs.client.Client;
+import javax.ws.rs.client.WebTarget;
 
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.PropertyContainer;
@@ -26,12 +29,11 @@ public class Neo4jIndexingItemHandler implements IndexingItemHandler {
 
 	private final Logger logger = LoggerFactory.getLogger(this.getClass());
 	
-	private Provider<RestAPI> neo4jprovider;
+	private WebTarget neo;
 
 	@Inject
-	public Neo4jIndexingItemHandler(Provider<RestAPI> neo4jprovider) {
-		logger.info("Initialized");
-		this.neo4jprovider = neo4jprovider;
+	public Neo4jIndexingItemHandler(@Named("neo4j") WebTarget neo4j) {
+		this.neo = neo4j;
 	}
 	
 	@Override
@@ -66,7 +68,9 @@ public class Neo4jIndexingItemHandler implements IndexingItemHandler {
 	public void handleStructuredData(IndexingItemProgress progress) {
 		IndexingDoc fields = progress.getFields();
 		
-		RestAPI db = neo4jprovider.get();
+		// Just test the JAX-RS API
+		WebTarget node = neo.path("node");
+		
 		
 		// Preparation, depending on what we end up with this could be provider stuff
 		//RestIndex<Node> mapIndex = db.getIndex("maps");
@@ -81,6 +85,7 @@ public class Neo4jIndexingItemHandler implements IndexingItemHandler {
 		Map<String, Object> mapNodeP = new HashMap<String, Object>();
 		String mapId = (String) fields.getFieldValue("idhead");
 		mapNodeP.put("id", mapId);
+		/*
 		Node mapNode;
 		// TODO on Add delete or overwrite existing map, support incremental indexing
 		//Node mapNode  = db.getOrCreateNode(mapIndex, "id", mapNodeP.get("id"), mapNodeP);
@@ -106,6 +111,7 @@ public class Neo4jIndexingItemHandler implements IndexingItemHandler {
 		
 		// TODO handle copy destination
 		logger.debug("neo4j added {} {}", mapRevisionNode, revisionRelationship);
+		*/
 	}
 
 }
