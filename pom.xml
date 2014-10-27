@@ -43,17 +43,24 @@
 			<groupId>se.simonsoft</groupId>
 			<artifactId>cms-indexing-xml</artifactId>  
 			<version>0.14-SNAPSHOT</version>
-		</dependency>
-		<dependency>
-			<groupId>org.neo4j</groupId>
-			<!-- this entire lib looks deprecated judging from github pages and lack of docs -->
-			<artifactId>neo4j-rest-graphdb</artifactId>  
-			<version>2.0.1</version>
+			<exclusions>
+				<!-- using JAX-RS 2 (Client) -->
+				<exclusion>
+					<groupId>javax.ws.rs</groupId>
+					<artifactId>jsr311-api</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 		<dependency>
 			<groupId>org.glassfish.jersey.core</groupId>
 			<artifactId>jersey-client</artifactId>
 			<version>2.13</version>
+		</dependency>
+		<!-- JAXB is overkill for parsing confirmations -->
+		<dependency>
+			<groupId>com.jayway.jsonpath</groupId>
+			<artifactId>json-path</artifactId>
+			<version>1.1.0</version>
 		</dependency>
 		<!-- logging backend for unit tests: log debug and above to console, no need for config file -->
 		<dependency>

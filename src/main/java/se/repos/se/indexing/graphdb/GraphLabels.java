@@ -1,6 +1,6 @@
 package se.repos.se.indexing.graphdb;
 
-public enum GraphLabels implements org.neo4j.graphdb.Label {
+public enum GraphLabels /*implements org.neo4j.graphdb.Label*/ {
 
 	/**
 	 * A resource that has Content.

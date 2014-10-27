@@ -11,11 +11,6 @@ import javax.inject.Provider;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.WebTarget;
 
-import org.neo4j.graphdb.Node;
-import org.neo4j.graphdb.PropertyContainer;
-import org.neo4j.rest.graphdb.RestAPI;
-import org.neo4j.rest.graphdb.entity.RestRelationship;
-import org.neo4j.rest.graphdb.index.RestIndex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -60,7 +55,7 @@ public class Neo4jIndexingItemHandler implements IndexingItemHandler {
 	}
 	
 	// Failed to use getOrCreateNode so we're caching here instead
-	private Map<String, Node> maps = new HashMap<String, Node>();
+	//private Map<String, Node> maps = new HashMap<String, Node>();
 	
 	/**
 	 * Cooperates with {@link Neo4jIndexingItemXmlElementHandler}.

@@ -1,8 +1,6 @@
 package se.repos.se.indexing.graphdb;
 
-import org.neo4j.graphdb.RelationshipType;
-
-public enum GraphRelationshipTypes implements RelationshipType {
+public enum GraphRelationshipTypes /*implements org.neo4j.graphdb.RelationshipType*/ {
 	
 	/**
 	 * From parent node to child node. Should have child number.
