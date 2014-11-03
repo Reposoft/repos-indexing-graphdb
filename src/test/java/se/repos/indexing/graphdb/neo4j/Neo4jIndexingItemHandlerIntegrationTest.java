@@ -1,11 +1,18 @@
-package se.repos.se.indexing.graphdb.neo4j;
+package se.repos.indexing.graphdb.neo4j;
 
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
 
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
+
 import org.junit.Test;
 
 import se.repos.indexing.IndexingDoc;
+import se.repos.indexing.graphdb.neo4j.Neo4jClientJaxrsProvider;
+import se.repos.indexing.graphdb.neo4j.Neo4jIndexingItemHandler;
+import se.repos.indexing.graphdb.neo4j.Neo4jIndexingItemXmlElementHandler;
 import se.repos.indexing.item.IndexingItemProgress;
 import se.repos.indexing.twophases.IndexingDocIncrementalSolrj;
 import se.simonsoft.cms.item.events.change.CmsChangesetItem;
@@ -30,6 +37,14 @@ public class Neo4jIndexingItemHandlerIntegrationTest {
 		doc.addField("idhead", "some/file.xml");
 		doc.addField("revt", System.currentTimeMillis());
 		handler.handle(progress);
+		
+		// Nodes
+		Set<String> authoringUnitElements = new HashSet<String>(Arrays.asList(
+				// techdoc
+				"p","title","figuretext",
+				// checksheets
+				"rule"));
+		Neo4jIndexingItemXmlElementHandler xml = new Neo4jIndexingItemXmlElementHandler(neoProvider.get(), authoringUnitElements);
 		
 		// now revision 2
 		//doc.addField("id", "some/file.xml@02");

@@ -1,4 +1,4 @@
-package se.repos.se.indexing.graphdb;
+package se.repos.indexing.graphdb;
 
 public enum GraphLabels /*implements org.neo4j.graphdb.Label*/ {
 

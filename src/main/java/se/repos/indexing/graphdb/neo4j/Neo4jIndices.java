@@ -1,4 +1,4 @@
-package se.repos.se.indexing.graphdb.neo4j;
+package se.repos.indexing.graphdb.neo4j;
 
 import javax.inject.Named;
 import javax.ws.rs.client.WebTarget;

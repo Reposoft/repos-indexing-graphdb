@@ -1,4 +1,4 @@
-package se.repos.se.indexing.graphdb.neo4j;
+package se.repos.indexing.graphdb.neo4j;
 
 import static org.junit.Assert.*;
 
@@ -11,6 +11,8 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
 import org.junit.Test;
+
+import se.repos.indexing.graphdb.neo4j.Neo4jClientJaxrsProvider;
 
 import com.jayway.jsonpath.JsonPath;
 import com.jayway.jsonpath.ReadContext;

@@ -1,24 +1,41 @@
 Index: pom.xml
 ===================================================================
---- pom.xml	(revision 733)
+--- pom.xml	(revision 738)
 +++ pom.xml	(working copy)
-@@ -76,9 +76,14 @@
- 			<version>0.11.8</version>
- 		</dependency>
+@@ -52,6 +52,12 @@
+ 			<groupId>se.repos</groupId>
+ 			<artifactId>repos-indexing</artifactId>
+ 			<version>0.9.2</version>
++			<exclusions>
++				<exclusion>
++					<artifactId>jsr311-api</artifactId>
++					<groupId>javax.ws.rs</groupId>
++				</exclusion>
++			</exclusions>
+ 		</dependency>	
  		<dependency>
+ 			<groupId>se.repos</groupId>
+@@ -74,7 +80,19 @@
+ 			<groupId>se.simonsoft</groupId>
+ 			<artifactId>cms-indexing-xml</artifactId>
+ 			<version>0.11.7</version>
++			<exclusions>
++				<!-- using JAX-RS 2 (Client) in this module -->
++				<exclusion>
++					<groupId>javax.ws.rs</groupId>
++					<artifactId>jsr311-api</artifactId>
++				</exclusion>
++			</exclusions>
+ 		</dependency>
++ 		<dependency>
 +			<groupId>se.repos</groupId>
 +			<artifactId>repos-indexing-graphdb</artifactId>
 +			<version>1-SNAPSHOT</version>
 +		</dependency>		
-+		<dependency>
- 			<groupId>se.simonsoft</groupId>
- 			<artifactId>cms-backend-svnkit</artifactId>
--			<version>1.1.1</version>
-+			<version>1.1.2</version>
- 		</dependency>
  		<dependency>
  			<groupId>se.simonsoft</groupId>
-@@ -118,6 +123,18 @@
+ 			<artifactId>cms-backend-svnkit</artifactId>
+@@ -118,6 +136,18 @@
  	</dependencies>
  	
  	<build>
@@ -39,15 +56,15 @@ Index: pom.xml
  				<artifactId>maven-assembly-plugin</artifactId>
 Index: src/main/java/se/repos/indexing/standalone/config/IndexingHandlersModuleXml.java
 ===================================================================
---- src/main/java/se/repos/indexing/standalone/config/IndexingHandlersModuleXml.java	(revision 733)
+--- src/main/java/se/repos/indexing/standalone/config/IndexingHandlersModuleXml.java	(revision 738)
 +++ src/main/java/se/repos/indexing/standalone/config/IndexingHandlersModuleXml.java	(working copy)
 @@ -5,6 +5,9 @@
  
  import se.repos.indexing.IndexingItemHandler;
  import se.repos.indexing.fulltext.HandlerFulltext;
-+import se.repos.se.indexing.graphdb.neo4j.Neo4jIndexedAnalysis;
-+import se.repos.se.indexing.graphdb.neo4j.Neo4jIndexingItemHandler;
-+import se.repos.se.indexing.graphdb.neo4j.Neo4jIndexingItemXmlElementHandler;
++import se.repos.indexing.graphdb.neo4j.Neo4jIndexedAnalysis;
++import se.repos.indexing.graphdb.neo4j.Neo4jIndexingItemHandler;
++import se.repos.indexing.graphdb.neo4j.Neo4jIndexingItemXmlElementHandler;
  import se.simonsoft.cms.indexing.xml.IndexAdminXml;
  import se.simonsoft.cms.indexing.xml.IndexingHandlersXml;
  import se.simonsoft.cms.indexing.xml.XmlIndexFieldExtraction;
@@ -64,44 +81,71 @@ Index: src/main/java/se/repos/indexing/standalone/config/IndexingHandlersModuleX
  
 Index: src/main/java/se/repos/indexing/standalone/config/ParentModule.java
 ===================================================================
---- src/main/java/se/repos/indexing/standalone/config/ParentModule.java	(revision 733)
+--- src/main/java/se/repos/indexing/standalone/config/ParentModule.java	(revision 738)
 +++ src/main/java/se/repos/indexing/standalone/config/ParentModule.java	(working copy)
-@@ -8,6 +8,7 @@
+@@ -3,9 +3,16 @@
+  */
+ package se.repos.indexing.standalone.config;
  
++import java.util.Arrays;
++import java.util.HashSet;
++import java.util.Set;
++
++import javax.ws.rs.client.WebTarget;
++
+ import org.apache.solr.client.solrj.SolrServer;
+ import org.tmatesoft.svn.core.wc.admin.SVNLookClient;
+ 
++import se.repos.indexing.graphdb.neo4j.Neo4jClientJaxrsProvider;
  import se.repos.indexing.scheduling.IndexingSchedule;
  import se.repos.indexing.scheduling.IndexingScheduleBlockingOnly;
-+import se.repos.se.indexing.graphdb.neo4j.Neo4jRestAPIProvider;
  import se.simonsoft.cms.backend.svnkit.svnlook.CmsRepositoryLookupSvnkitLook;
- import se.simonsoft.cms.backend.svnkit.svnlook.SvnlookClientProviderStateless;
+@@ -13,6 +20,7 @@
  import se.simonsoft.cms.item.info.CmsRepositoryLookup;
-@@ -32,6 +33,9 @@
+ 
+ import com.google.inject.AbstractModule;
++import com.google.inject.TypeLiteral;
+ import com.google.inject.name.Names;
+ 
+ public class ParentModule extends AbstractModule {
+@@ -32,6 +40,16 @@
  		// this is an all-inspection context
  		bind(SVNLookClient.class).toProvider(SvnlookClientProviderStateless.class);
  		bind(CmsRepositoryLookup.class).to(CmsRepositoryLookupSvnkitLook.class);
 +		
++		// authoring stuff
++		bind(new TypeLiteral<Set<String>>(){}).annotatedWith(Names.named("config:se.repos.indexing.authoringUnitElements")).toInstance(new HashSet<String>(Arrays.asList(
++				// techdoc
++				"p", "title", "figuretext",
++				// checksheets
++				"rule"
++				)));
 +		// graphdb
-+		bind(org.neo4j.rest.graphdb.RestAPI.class).toProvider(Neo4jRestAPIProvider.class); // TODO as singleton?
++		bind(WebTarget.class).annotatedWith(Names.named("neo4j")).toProvider(Neo4jClientJaxrsProvider.class); // TODO as singleton?
  	}
  	
  }
 Index: src/main/resources/log4j2.xml
 ===================================================================
---- src/main/resources/log4j2.xml	(revision 733)
+--- src/main/resources/log4j2.xml	(revision 738)
 +++ src/main/resources/log4j2.xml	(working copy)
-@@ -14,6 +14,17 @@
+@@ -14,6 +14,20 @@
  		</Console>
  	</Appenders>
  	<Loggers>
-+		<!-- neo4j dev -->
-+		<Logger name="se.simonsoft.cms.backend" level="warn">
++		<!-- neo4j dev -->	
++		<Logger name="se.repos.indexing" level="info">
 +			<AppenderRef ref="Console"/>
 +		</Logger>
-+		<Logger name="se.repos.indexing" level="info">
++		<Logger name="se.repos.indexing.graphdb" level="trace">
++			<AppenderRef ref="Console"/>
++		</Logger>
++		<Logger name="se.simonsoft.cms.backend" level="warn">
 +			<AppenderRef ref="Console"/>
 +		</Logger>
 +		<Logger name="se.simonsoft.cms.indexing" level="info">
 +			<AppenderRef ref="Console"/>
-+		</Logger>
++		</Logger>		
 +		<!-- end neo4j dev -->
  		<Root level="${level}">
  			<AppenderRef ref="Console" />

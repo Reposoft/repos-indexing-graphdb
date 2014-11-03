@@ -1,4 +1,4 @@
-package se.repos.se.indexing.graphdb;
+package se.repos.indexing.graphdb;
 
 public enum GraphRelationshipTypes /*implements org.neo4j.graphdb.RelationshipType*/ {
 	

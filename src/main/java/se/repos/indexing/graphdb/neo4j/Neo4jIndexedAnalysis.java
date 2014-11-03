@@ -1,4 +1,4 @@
-package se.repos.se.indexing.graphdb.neo4j;
+package se.repos.indexing.graphdb.neo4j;
 
 import java.util.HashSet;
 import java.util.Set;

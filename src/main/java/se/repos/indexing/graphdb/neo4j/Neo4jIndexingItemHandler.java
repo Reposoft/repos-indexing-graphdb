@@ -1,4 +1,4 @@
-package se.repos.se.indexing.graphdb.neo4j;
+package se.repos.indexing.graphdb.neo4j;
 
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
@@ -31,9 +31,9 @@ import com.jayway.jsonpath.JsonPath;
 
 import se.repos.indexing.IndexingDoc;
 import se.repos.indexing.IndexingItemHandler;
+import se.repos.indexing.graphdb.GraphLabels;
+import se.repos.indexing.graphdb.GraphRelationshipTypes;
 import se.repos.indexing.item.IndexingItemProgress;
-import se.repos.se.indexing.graphdb.GraphLabels;
-import se.repos.se.indexing.graphdb.GraphRelationshipTypes;
 
 
 /**
@@ -116,33 +116,12 @@ public class Neo4jIndexingItemHandler implements IndexingItemHandler {
 				+ " WHERE map.id = '{}' AND mapr.id = '{}'"
 				+ " CREATE (map)-[r:HAS]->(mapr) RETURN r";
 		
-		String response = runCypherTransaction(
+		String response = Neo4jClientJaxrsProvider.runCypherTransaction(neo,
 				MessageFormatter.format(map, fields.getFieldValue("idhead")).getMessage()
 				,MessageFormatter.format(mapRevision, fields.getFieldValue("id"), fields.getFieldValue("revt")).getMessage()
 				,MessageFormatter.format(mapRevisionRelation, fields.getFieldValue("idhead"), fields.getFieldValue("id")).getMessage()
 				);
 		System.out.println(response);
-	}
-
-	/**
-	 * @param cypher without double quotes, generated without user input
-	 * @return neo4j REST response
-	 */
-	private String runCypherTransaction(String... cypher) {
-		StringBuffer statements = new StringBuffer("{\"statements\" : [");
-		for (int i = 0; i < cypher.length; i++) {
-			if (i > 0) {
-				statements.append(',');
-			}
-			statements.append("{\"statement\":\"").append(cypher[i]).append("\"}");
-		}
-		statements.append("]}");
-		Response runAndCommit = neo.path("transaction/commit/")
-				.request(MediaType.APPLICATION_JSON)
-			    .post(Entity.entity(statements.toString(), MediaType.APPLICATION_JSON));
-		logger.debug("Status {} from {}", runAndCommit.getStatus(), statements);
-		String response = runAndCommit.readEntity(String.class);
-		return response;
 	}
 
 }
