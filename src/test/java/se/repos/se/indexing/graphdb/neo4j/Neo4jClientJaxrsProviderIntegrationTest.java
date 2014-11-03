@@ -2,6 +2,8 @@ package se.repos.se.indexing.graphdb.neo4j;
 
 import static org.junit.Assert.*;
 
+import java.util.List;
+
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.Form;
@@ -11,6 +13,7 @@ import javax.ws.rs.core.Response;
 import org.junit.Test;
 
 import com.jayway.jsonpath.JsonPath;
+import com.jayway.jsonpath.ReadContext;
 
 public class Neo4jClientJaxrsProviderIntegrationTest {
 	
@@ -20,19 +23,29 @@ public class Neo4jClientJaxrsProviderIntegrationTest {
 		
 		Form form = new Form();
 		form.param("id", "test_" + this.getClass().getName() + System.currentTimeMillis());
+		form.param("samplekey", "samplevalue");
 		
 		Response created = neo.path("node").request(MediaType.APPLICATION_JSON_TYPE)
 			    .post(Entity.entity(form, MediaType.APPLICATION_FORM_URLENCODED_TYPE));
-		System.out.println("POST response: ");
-		System.out.println(created.getHeaders());
+		assertEquals(201, created.getStatus());
 		// readEntity also closes the stream
 		Integer id = (Integer) JsonPath.read(created.readEntity(String.class), "$.metadata.id");
+		
+		Response setlabel = neo.path("node/" + id + "/labels")
+				.request(MediaType.APPLICATION_JSON_TYPE)
+			    .post(Entity.json("\"Unittest\""));
+		assertEquals("Got " + setlabel.getHeaders() + " " + setlabel.readEntity(String.class), 204, setlabel.getStatus());
 		
 		Response read = neo.path("node/" + id).request(MediaType.APPLICATION_JSON).get();
 		assertEquals(200, read.getStatus());
 		System.out.println("GET response: ");
 		System.out.println(read.getHeaders());
-		System.out.println(read.readEntity(String.class));
+		
+		ReadContext json = JsonPath.parse(read.readEntity(String.class));
+		List<String> labels = json.read("$.metadata.labels");
+		assertEquals(1, labels.size());
+		assertEquals("Unittest", labels.get(0));
+		assertEquals(form.asMap().get("id").get(0), json.read("$.data.id"));
 	}
 
 }
