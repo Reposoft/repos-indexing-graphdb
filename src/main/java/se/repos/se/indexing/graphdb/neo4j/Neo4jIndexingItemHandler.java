@@ -25,6 +25,7 @@ import javax.ws.rs.core.Response;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.helpers.MessageFormatter;
 
 import com.jayway.jsonpath.JsonPath;
 
@@ -101,179 +102,47 @@ public class Neo4jIndexingItemHandler implements IndexingItemHandler {
 		Form mapForm = new Form();
 		mapForm.param("id", (String) fields.getFieldValue("idhead"));
 		
-		Response mapUniqueness = neo.path("schema/constraint/Map/uniqueness/")
-				.request(MediaType.APPLICATION_JSON_TYPE)
-			    .post(Entity.entity("{\"property_keys\":[\"id\"]}", MediaType.TEXT_PLAIN));
-		System.out.println("Uniqueness response, status " + mapUniqueness.getStatus() + ": ");
-		System.out.println(mapUniqueness.getHeaders());
-		System.out.println(mapUniqueness.readEntity(String.class));
+		// Maybe not needed when cypher queries maintain uniqueness, but obviously we should have this in a production setup
+//		Response mapUniqueness = neo.path("schema/constraint/Map/uniqueness/")
+//				.request(MediaType.APPLICATION_JSON)
+//			    .post(Entity.entity("{\"property_keys\":[\"id\"]}", MediaType.APPLICATION_JSON));
+//		System.out.println("Uniqueness response, status " + mapUniqueness.getStatus() + ": ");
+//		System.out.println(mapUniqueness.getHeaders());
+//		System.out.println(mapUniqueness.readEntity(String.class));
 		
-		//Response created = neo.path("index/node/maps?uniqueness=get_or_create")
-		//Response created = neo.path("label/Map/node")
-		//http://localhost:7474/db/data/index/node/people?uniqueness=get_or_create
-		Response created = neo.path("node?uniqueness=get_or_create")
-				.request(MediaType.APPLICATION_JSON_TYPE)
-			    .post(Entity.entity(mapForm, MediaType.APPLICATION_FORM_URLENCODED_TYPE));
-		System.out.println("Map create POST response, status " + created.getStatus() + ": ");
-		System.out.println(created.getHeaders());
-		System.out.println(created.readEntity(String.class));
+		String map = "MERGE (map:Map { id: '{}' }) RETURN map";
+		String mapRevision = "MERGE (mapr:MapRevision { id: '{}', revt: '{}' }) RETURN mapr"; // TODO could be unique
+		String mapRevisionRelation = "MATCH (map:Map),(mapr:MapRevision)"
+				+ " WHERE map.id = '{}' AND mapr.id = '{}'"
+				+ " CREATE (map)-[r:HAS]->(mapr) RETURN r";
 		
-		
-		// Just start using the index and it will be created automatically, says: http://neo4j.com/docs/2.1.5/rest-api-indexes.html#rest-api-create-node-index
-		String uniquebody = "{" +
-		"  \"key\" : \"id\"," +
-		"  \"value\" : \"some/file5.txt\"," +
-		"  \"properties\" : {" +
-		"    \"id\" : \"some/file5.txt\"" +
-		"  }" +
-		"}";
-
-		Response unique = neo.path("index/node/maps").queryParam("uniqueness","get_or_create")
-				.request(MediaType.APPLICATION_JSON)
-				// the query param gets urlencoded with .post
-			    .post(Entity.entity(uniquebody, MediaType.TEXT_PLAIN));
-		System.out.println("Get_or_create response, status " + unique.getStatus() + ": ");
-		System.out.println(unique.getHeaders());
-		System.out.println(unique.readEntity(String.class));
-
-		// The above urlencodes the ? in the URL (I guess it is pretty non-standard to post with a query string) so try raw
-		String url = "http://localhost:7474/db/data/index/node/maps?uniqueness=get_or_create";
-		String json; 
-		//json = postrawjson(uniquebody, url);
-		
-		// Try the same using batch instead
-		String uniqueAndLabel = "["
-				// The node
-				// Apparently the uniqueness URL can't be combined with label creation using referral
-				//+ "{\"method\":\"POST\", \"to\":\"/index/node/maps?uniqueness=get_or_create\","
-				+ "{\"method\":\"POST\", \"to\":\"/node\","
-				+ "\"id\":0, \"body\":" + uniquebody + "}"
-				// a label, http://neo4j.com/docs/stable/rest-api-batch-ops.html#rest-api-refer-to-items-created-earlier-in-the-same-batch-job
-				+ ",{\"method\":\"POST\", \"to\":\"{0}/labels\","
-				+ "\"id\":1, \"body\":\"Map\"}"
-						+ "]";
-		//System.out.println(uniqueAndLabel);
-		//json = postrawjson(uniqueAndLabel, "http://localhost:7474/db/data/batch");
-//		Response batch = neo.path("batch")
-//				.request(MediaType.APPLICATION_JSON_TYPE)
-//			    .post(Entity.entity(uniqueAndLabel, MediaType.APPLICATION_JSON));
-//		System.out.println("Batch response, status " + batch.getStatus() + ": ");
-//		System.out.println(batch.getHeaders());
-//		System.out.println(batch.readEntity(String.class));
-		
-		
-		testBatch();				
-		
-		
-		// readEntity also closes the stream
-		//Integer id = (Integer) JsonPath.read(created.readEntity(String.class), "$.metadata.id");		
-		
-		// Preparation, depending on what we end up with this could be provider stuff
-		//RestIndex<Node> mapIndex = db.getIndex("maps");
-		//if (mapIndex == null) {
-		//	logger.debug("Creating index 'maps'");
-		//	Map<String,String> mapsConfig = new HashMap<String, String>();
-		//	db.createIndex(Node.class, "maps", mapsConfig);
-		//}
-		//RestIndex<Node> mapIndex = db.getIndex("maps");
-		// End preparation, start item processing
-		
-		Map<String, Object> mapNodeP = new HashMap<String, Object>();
-		String mapId = (String) fields.getFieldValue("idhead");
-		mapNodeP.put("id", mapId);
-		
-		
-		
-		/*
-		Node mapNode;
-		// TODO on Add delete or overwrite existing map, support incremental indexing
-		//Node mapNode  = db.getOrCreateNode(mapIndex, "id", mapNodeP.get("id"), mapNodeP);
-		if (maps.containsKey(mapId)) {
-			mapNode = maps.get(mapId);
-			logger.debug("In-memory cache had Map node {} for id {}", mapNode, mapId);
-		} else {
-			mapNode = db.createNode(mapNodeP);
-			mapNode.addLabel(GraphLabels.Map);
-			maps.put(mapId, mapNode);
-			logger.info("Created new Map node {} for id {}", mapNode, mapId);
-		}
-		
-		Map<String, Object> mapRevisionNodeP = new HashMap<String, Object>();
-		mapRevisionNodeP.put("id", fields.getFieldValue("id"));
-		Node mapRevisionNode  = db.createNode(mapRevisionNodeP);
-		mapRevisionNode.addLabel(GraphLabels.MapRevision);
-		
-		Map<String, Object> commitP = new HashMap<String, Object>();
-		commitP.put("rev", fields.getFieldValue("rev"));
-		commitP.put("comment", fields.getFieldValue("revcomment")); // Or should we model a CommitRevision and add relation from there to MapRevision? Reduce redundancy.
-		RestRelationship revisionRelationship = db.createRelationship(mapNode, mapRevisionNode, GraphRelationshipTypes.APPLIES, commitP); // Or reverse and call MODIFY?
-		
-		// TODO handle copy destination
-		logger.debug("neo4j added {} {}", mapRevisionNode, revisionRelationship);
-		*/
+		String response = runCypherTransaction(
+				MessageFormatter.format(map, fields.getFieldValue("idhead")).getMessage()
+				,MessageFormatter.format(mapRevision, fields.getFieldValue("id"), fields.getFieldValue("revt")).getMessage()
+				,MessageFormatter.format(mapRevisionRelation, fields.getFieldValue("idhead"), fields.getFieldValue("id")).getMessage()
+				);
+		System.out.println(response);
 	}
 
-	private String postrawjson(String body, String encodedUrl) {
-		try {
-			URL url = new URL(encodedUrl);
-			HttpURLConnection connection = (HttpURLConnection) url.openConnection();           
-			connection.setDoOutput(true);
-			connection.setDoInput(true);
-			connection.setInstanceFollowRedirects(false); 
-			connection.setRequestMethod("POST"); 
-			connection.setRequestProperty("Content-Type", "application/json");
-			connection.setRequestProperty("Content-Length", Integer.toString(body.getBytes().length));
-			connection.setRequestProperty("Accept", "application/json");
-			connection.setUseCaches(false);
-	
-			DataOutputStream wr = new DataOutputStream(connection.getOutputStream ());
-			wr.writeBytes(body);
-			wr.flush();
-			wr.close();
-			connection.disconnect();
-			
-			System.out.println("Result from raw JSON post " + connection.getResponseCode());
-			InputStream response = connection.getInputStream();
-			ByteArrayOutputStream to = new ByteArrayOutputStream();
-			int b;
-			while ((b = response.read()) > 0) {
-				to.write(b);
+	/**
+	 * @param cypher without double quotes, generated without user input
+	 * @return neo4j REST response
+	 */
+	private String runCypherTransaction(String... cypher) {
+		StringBuffer statements = new StringBuffer("{\"statements\" : [");
+		for (int i = 0; i < cypher.length; i++) {
+			if (i > 0) {
+				statements.append(',');
 			}
-			response.close();
-			System.out.println(to.toString("UTF-8"));
-			return to.toString("UTF-8");
-		} catch (Exception e) {
-			throw new RuntimeException(e);
+			statements.append("{\"statement\":\"").append(cypher[i]).append("\"}");
 		}
-	}
-
-	private void testBatch() {
-		String batchbody = "[" + 
-				"{\"method\" : \"POST\"," +
-				//"\"to\" : \"/node\"," +
-				"\"to\" : \"/index/node/maps?uniqueness=get_or_create\"," +
-				"\"body\" : {" +
-				"  \"key\" : \"id\"," +
-				"  \"value\" : \"some/file6.txt\"," +
-				"  \"properties\" : {" +
-				"    \"id\" : \"some/file6.txt\"" +
-				"  }" +
-				"}," +
-				"\"id\" : 0" +
-				"}" +
-				",{\"method\" : \"POST\"," +
-				"\"to\" : \"{0}/labels\"," +
-				"\"body\" : \"Map\"," +
-				"\"id\" : 1" +
-				"}"	+
-				"]";
-		System.out.println(batchbody);
-		Response batch = neo.path("batch")
-				.request(MediaType.APPLICATION_JSON_TYPE)
-			    .post(Entity.entity(batchbody, MediaType.TEXT_PLAIN));
-		System.out.println("Batch response, status " + batch.getStatus() + ": ");
-		System.out.println(batch.getHeaders());
-		System.out.println(batch.readEntity(String.class));
+		statements.append("]}");
+		Response runAndCommit = neo.path("transaction/commit/")
+				.request(MediaType.APPLICATION_JSON)
+			    .post(Entity.entity(statements.toString(), MediaType.APPLICATION_JSON));
+		logger.debug("Status {} from {}", runAndCommit.getStatus(), statements);
+		String response = runAndCommit.readEntity(String.class);
+		return response;
 	}
 
 }

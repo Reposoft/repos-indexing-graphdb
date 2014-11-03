@@ -28,6 +28,7 @@ public class Neo4jIndexingItemHandlerIntegrationTest {
 		doc.addField("flag", "hasxml");
 		doc.addField("id", "some/file.xml@01");
 		doc.addField("idhead", "some/file.xml");
+		doc.addField("revt", System.currentTimeMillis());
 		handler.handle(progress);
 		
 		// now revision 2
