@@ -152,17 +152,17 @@ public class Neo4jIndexingItemHandler implements IndexingItemHandler {
 				+ ",{\"method\":\"POST\", \"to\":\"{0}/labels\","
 				+ "\"id\":1, \"body\":\"Map\"}"
 						+ "]";
-		System.out.println(uniqueAndLabel);
+		//System.out.println(uniqueAndLabel);
 		//json = postrawjson(uniqueAndLabel, "http://localhost:7474/db/data/batch");
-		Response batch = neo.path("batch")
-				.request(MediaType.APPLICATION_JSON_TYPE)
-			    .post(Entity.entity(uniqueAndLabel, MediaType.APPLICATION_JSON));
-		System.out.println("Batch response, status " + batch.getStatus() + ": ");
-		System.out.println(batch.getHeaders());
-		System.out.println(batch.readEntity(String.class));
+//		Response batch = neo.path("batch")
+//				.request(MediaType.APPLICATION_JSON_TYPE)
+//			    .post(Entity.entity(uniqueAndLabel, MediaType.APPLICATION_JSON));
+//		System.out.println("Batch response, status " + batch.getStatus() + ": ");
+//		System.out.println(batch.getHeaders());
+//		System.out.println(batch.readEntity(String.class));
 		
 		
-		//testBatch();				
+		testBatch();				
 		
 		
 		// readEntity also closes the stream
@@ -248,18 +248,26 @@ public class Neo4jIndexingItemHandler implements IndexingItemHandler {
 	}
 
 	private void testBatch() {
-		String batchbody = "[{" + 
-				"\"method\" : \"POST\"," +
-				"\"to\" : \"/node\"," +
+		String batchbody = "[" + 
+				"{\"method\" : \"POST\"," +
+				//"\"to\" : \"/node\"," +
+				"\"to\" : \"/index/node/maps?uniqueness=get_or_create\"," +
 				"\"body\" : {" +
-				// just a regular attribute
-				" \"labels\" : [\"Map\"]," +
-				"  \"test\" : 1" +
+				"  \"key\" : \"id\"," +
+				"  \"value\" : \"some/file6.txt\"," +
+				"  \"properties\" : {" +
+				"    \"id\" : \"some/file6.txt\"" +
+				"  }" +
 				"}," +
-				"\"id\" : 2," +
-				// Not working:
-				"\"labels\" : [\"Map\"]" +
-				"}]";
+				"\"id\" : 0" +
+				"}" +
+				",{\"method\" : \"POST\"," +
+				"\"to\" : \"{0}/labels\"," +
+				"\"body\" : \"Map\"," +
+				"\"id\" : 1" +
+				"}"	+
+				"]";
+		System.out.println(batchbody);
 		Response batch = neo.path("batch")
 				.request(MediaType.APPLICATION_JSON_TYPE)
 			    .post(Entity.entity(batchbody, MediaType.TEXT_PLAIN));
