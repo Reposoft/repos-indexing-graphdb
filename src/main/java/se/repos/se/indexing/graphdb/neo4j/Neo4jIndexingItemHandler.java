@@ -9,10 +9,16 @@ import javax.inject.Inject;
 import javax.inject.Named;
 import javax.inject.Provider;
 import javax.ws.rs.client.Client;
+import javax.ws.rs.client.Entity;
 import javax.ws.rs.client.WebTarget;
+import javax.ws.rs.core.Form;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.jayway.jsonpath.JsonPath;
 
 import se.repos.indexing.IndexingDoc;
 import se.repos.indexing.IndexingItemHandler;
@@ -66,6 +72,49 @@ public class Neo4jIndexingItemHandler implements IndexingItemHandler {
 		// Just test the JAX-RS API
 		WebTarget node = neo.path("node");
 		
+		Form mapForm = new Form();
+		mapForm.param("id", (String) fields.getFieldValue("idhead"));
+		
+		Response mapUniqueness = neo.path("schema/constraint/Map/uniqueness/")
+				.request(MediaType.APPLICATION_JSON_TYPE)
+			    .post(Entity.entity("{\"property_keys\":[\"id\"]}", MediaType.TEXT_PLAIN));
+		System.out.println("Uniqueness response, status " + mapUniqueness.getStatus() + ": ");
+		System.out.println(mapUniqueness.getHeaders());
+		System.out.println(mapUniqueness.readEntity(String.class));
+		
+		//Response created = neo.path("index/node/maps?uniqueness=get_or_create")
+		//Response created = neo.path("label/Map/node")
+		Response created = neo.path("node")
+				.request(MediaType.APPLICATION_JSON_TYPE)
+			    .post(Entity.entity(mapForm, MediaType.APPLICATION_FORM_URLENCODED_TYPE));
+		System.out.println("Map create POST response, status " + created.getStatus() + ": ");
+		System.out.println(created.getHeaders());
+		System.out.println(created.readEntity(String.class));
+		
+		
+		String batchbody = "[{" + 
+				"\"method\" : \"POST\"," +
+				"\"to\" : \"node\"," +
+				"\"body\" : {" +
+				// just a regular attribute
+				" \"labels\" : [\"Map\"]," +
+				"  \"test\" : 1" +
+				"}," +
+				"\"id\" : 2," +
+				// Not working:
+				"\"labels\" : [\"Map\"]" +
+				"}]";
+		
+		Response batch = neo.path("batch")
+				.request(MediaType.APPLICATION_JSON_TYPE)
+			    .post(Entity.entity(batchbody, MediaType.TEXT_PLAIN));
+		System.out.println("Batch response, status " + batch.getStatus() + ": ");
+		System.out.println(batch.getHeaders());
+		System.out.println(batch.readEntity(String.class));				
+		
+		
+		// readEntity also closes the stream
+		//Integer id = (Integer) JsonPath.read(created.readEntity(String.class), "$.metadata.id");		
 		
 		// Preparation, depending on what we end up with this could be provider stuff
 		//RestIndex<Node> mapIndex = db.getIndex("maps");
@@ -80,6 +129,9 @@ public class Neo4jIndexingItemHandler implements IndexingItemHandler {
 		Map<String, Object> mapNodeP = new HashMap<String, Object>();
 		String mapId = (String) fields.getFieldValue("idhead");
 		mapNodeP.put("id", mapId);
+		
+		
+		
 		/*
 		Node mapNode;
 		// TODO on Add delete or overwrite existing map, support incremental indexing
