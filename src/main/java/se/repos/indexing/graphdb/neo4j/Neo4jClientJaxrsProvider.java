@@ -20,26 +20,4 @@ public class Neo4jClientJaxrsProvider implements Provider<WebTarget> {
 		return client.target("http://localhost:7474/db/data");
 	}
 	
-	/**
-	 * @param cypher without double quotes, generated without user input
-	 * @return neo4j REST response
-	 */
-	static String runCypherTransaction(WebTarget neo, String... cypher) {
-		StringBuffer statements = new StringBuffer("{\"statements\" : [");
-		for (int i = 0; i < cypher.length; i++) {
-			if (i > 0) {
-				statements.append(',');
-			}
-			statements.append("{\"statement\":\"").append(cypher[i]).append("\"}");
-		}
-		statements.append("]}");
-		Response runAndCommit = neo.path("transaction/commit/")
-				.request(MediaType.APPLICATION_JSON)
-			    .post(Entity.entity(statements.toString(), MediaType.APPLICATION_JSON));
-		logger.debug("Status {} from {}", runAndCommit.getStatus(), statements);
-		String response = runAndCommit.readEntity(String.class);
-		return response;
-	}
-	
-	
 }

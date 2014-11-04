@@ -7,7 +7,7 @@ import javax.ws.rs.client.WebTarget;
 import org.junit.Test;
 
 import se.repos.indexing.graphdb.neo4j.Neo4jClientJaxrsProvider;
-import se.repos.indexing.graphdb.neo4j.Neo4jIndices;
+import se.repos.indexing.graphdb.neo4j.Neo4jIndicesCypherConstraints;
 
 public class Neo4jIndicesIntegrationTest {
 
@@ -15,9 +15,9 @@ public class Neo4jIndicesIntegrationTest {
 	public void test() {
 		Neo4jClientJaxrsProvider neoProvider = new Neo4jClientJaxrsProvider();
 		
-		Neo4jIndices neoIndices = new Neo4jIndices(neoProvider);
+		Neo4jIndicesCypherConstraints neoIndices = new Neo4jIndicesCypherConstraints(neoProvider.get());
 		
-		WebTarget maps = neoIndices.getMaps();
+		
 	}
 
 }

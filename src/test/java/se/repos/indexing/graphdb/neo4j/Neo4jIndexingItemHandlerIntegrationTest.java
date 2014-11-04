@@ -12,7 +12,6 @@ import org.junit.Test;
 import se.repos.indexing.IndexingDoc;
 import se.repos.indexing.graphdb.neo4j.Neo4jClientJaxrsProvider;
 import se.repos.indexing.graphdb.neo4j.Neo4jIndexingItemHandler;
-import se.repos.indexing.graphdb.neo4j.Neo4jIndexingItemXmlElementHandler;
 import se.repos.indexing.item.IndexingItemProgress;
 import se.repos.indexing.twophases.IndexingDocIncrementalSolrj;
 import se.simonsoft.cms.item.events.change.CmsChangesetItem;
@@ -24,7 +23,12 @@ public class Neo4jIndexingItemHandlerIntegrationTest {
 	@Test
 	public void test() {
 		Neo4jClientJaxrsProvider neoProvider = new Neo4jClientJaxrsProvider();
-		Neo4jIndexingItemHandler handler = new Neo4jIndexingItemHandler(neoProvider.get());
+		Set<String> authoringUnitElements = new HashSet<String>(Arrays.asList(
+				// techdoc
+				"p","title","figuretext",
+				// checksheets
+				"rule"));		
+		Neo4jIndexingItemHandler handler = new Neo4jIndexingItemHandler(neoProvider.get(), authoringUnitElements);
 		
 		IndexingItemProgress progress = mock(IndexingItemProgress.class);
 		
@@ -41,13 +45,7 @@ public class Neo4jIndexingItemHandlerIntegrationTest {
 		handler.handle(progress);
 		
 		// Nodes
-		Set<String> authoringUnitElements = new HashSet<String>(Arrays.asList(
-				// techdoc
-				"p","title","figuretext",
-				// checksheets
-				"rule"));
-		Neo4jIndexingItemXmlElementHandler xml = new Neo4jIndexingItemXmlElementHandler(neoProvider.get(), authoringUnitElements);
-		
+
 		XmlSourceElement el1 = mock(XmlSourceElement.class);
 		when(el1.getName()).thenReturn("p");
 		when(el1.getLocation()).thenReturn(new TreeLocation("1.20.1.2"));
@@ -57,7 +55,7 @@ public class Neo4jIndexingItemHandlerIntegrationTest {
 		xml1.setField("rev", 1L);
 		xml1.setField("c_sha1_source_reuse", "aaaaaaa1");
 		
-		xml.extract(el1, xml1);
+		handler.extract(el1, xml1);
 		
 		// now revision 2
 		//doc.addField("id", "some/file.xml@02");

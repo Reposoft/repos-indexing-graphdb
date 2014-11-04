@@ -1,25 +1,12 @@
 package se.repos.indexing.graphdb.neo4j;
 
-import java.io.ByteArrayOutputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
-import java.net.ProtocolException;
-import java.net.URL;
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Set;
 
 import javax.inject.Inject;
 import javax.inject.Named;
-import javax.inject.Provider;
-import javax.ws.rs.client.Client;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.client.WebTarget;
-import javax.ws.rs.core.Form;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
@@ -27,16 +14,17 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.helpers.MessageFormatter;
 
-import com.jayway.jsonpath.JsonPath;
-
 import se.repos.indexing.IndexingDoc;
 import se.repos.indexing.IndexingItemHandler;
-import se.repos.indexing.graphdb.GraphLabels;
-import se.repos.indexing.graphdb.GraphRelationshipTypes;
 import se.repos.indexing.item.IndexingItemProgress;
-
+import se.simonsoft.cms.indexing.xml.XmlIndexFieldExtraction;
+import se.simonsoft.cms.item.CmsItemPath;
+import se.simonsoft.cms.xmlsource.TreeLocation;
+import se.simonsoft.cms.xmlsource.handler.XmlNotWellFormedException;
+import se.simonsoft.cms.xmlsource.handler.XmlSourceElement;
 
 /**
+ * Handles both Item and XML.
  * 
  * Ruled out http://neo4j.com/docs/stable/batchinsert-examples.html because it seems to need a lock on the DB dir.
  * 
@@ -53,15 +41,20 @@ import se.repos.indexing.item.IndexingItemProgress;
  * Worth to note that the Java APIs they refer to in the docs are GraphDatabaseService from http://neo4j.com/docs/2.1.5/javadocs/org/neo4j/graphdb/factory/GraphDatabaseFactory.html,
  * which uses the local db dir instead of the HTTP interface.
  */
-public class Neo4jIndexingItemHandler implements IndexingItemHandler {
+// Add this to do item and xml from same instance: @javax.inject.Singleton
+public class Neo4jIndexingItemHandler implements IndexingItemHandler, XmlIndexFieldExtraction {
 
-	private final Logger logger = LoggerFactory.getLogger(this.getClass());
+	private static final Logger logger = LoggerFactory.getLogger(Neo4jIndexingItemHandler.class);
 	
 	private WebTarget neo;
+	
+	private Set<String> authoringUnitElements;
 
 	@Inject
-	public Neo4jIndexingItemHandler(@Named("neo4j") WebTarget neo4j) {
+	public Neo4jIndexingItemHandler(@Named("neo4j") WebTarget neo4j,
+			@Named("config:se.repos.indexing.authoringUnitElements") Set<String> authoringUnitElements) {
 		this.neo = neo4j;
+		this.authoringUnitElements = authoringUnitElements;
 	}
 	
 	@Override
@@ -95,33 +88,88 @@ public class Neo4jIndexingItemHandler implements IndexingItemHandler {
 	 */
 	public void handleStructuredData(IndexingItemProgress progress) {
 		IndexingDoc fields = progress.getFields();
-		
-		// Just test the JAX-RS API
-		WebTarget node = neo.path("node");
-		
-		Form mapForm = new Form();
-		mapForm.param("id", (String) fields.getFieldValue("idhead"));
-		
-		// Maybe not needed when cypher queries maintain uniqueness, but obviously we should have this in a production setup
-//		Response mapUniqueness = neo.path("schema/constraint/Map/uniqueness/")
-//				.request(MediaType.APPLICATION_JSON)
-//			    .post(Entity.entity("{\"property_keys\":[\"id\"]}", MediaType.APPLICATION_JSON));
-//		System.out.println("Uniqueness response, status " + mapUniqueness.getStatus() + ": ");
-//		System.out.println(mapUniqueness.getHeaders());
-//		System.out.println(mapUniqueness.readEntity(String.class));
-		
+				
 		String map = "MERGE (map:Map { id: '{}' }) RETURN map";
-		String mapRevision = "MERGE (mapr:MapRevision { id: '{}', revt: '{}' }) RETURN mapr"; // TODO could be unique
-		String mapRevisionRelation = "MATCH (map:Map),(mapr:MapRevision)"
-				+ " WHERE map.id = '{}' AND mapr.id = '{}'"
-				+ " CREATE (map)-[r:HAS]->(mapr) RETURN r";
+		String patch = "MERGE (patch:Patch { id: '{}', revt: '{}' }) RETURN patch"; // TODO could be unique
+		String patchRelation = "MATCH (map:Map),(patch:Patch)"
+				+ " WHERE map.id = '{}' AND patch.id = '{}'"
+				+ " CREATE (map)-[r:HAS]->(patch) RETURN r";
 		
-		String response = Neo4jClientJaxrsProvider.runCypherTransaction(neo,
-				MessageFormatter.format(map, fields.getFieldValue("idhead")).getMessage()
-				,MessageFormatter.format(mapRevision, fields.getFieldValue("id"), fields.getFieldValue("revt")).getMessage()
-				,MessageFormatter.format(mapRevisionRelation, fields.getFieldValue("idhead"), fields.getFieldValue("id")).getMessage()
+		String mapid = (String) fields.getFieldValue("idhead");
+		String patchid = (String) fields.getFieldValue("id");
+		String response = runCypherTransaction(neo,
+				MessageFormatter.format(map, mapid).getMessage()
+				,MessageFormatter.format(patch, patchid, fields.getFieldValue("revt")).getMessage()
+				,MessageFormatter.format(patchRelation, mapid, patchid).getMessage()
 				);
-		System.out.println(response);
+		logger.debug("Patch creation {}->{} result: {}", mapid, patchid, response);
+		
+		if (progress.getItem().isCopy()) {
+			// Assumptions/limitations: Copy is not historical + copy has no modifications.
+			CmsItemPath from = progress.getItem().getCopyFromPath();
+			
+		}
 	}
+	
+	@Override
+	public void extract(XmlSourceElement processedElement, IndexingDoc fields)
+			throws XmlNotWellFormedException {
+
+		//logger.trace("Graphdb content unit indexing can use: {}", fields.getFieldNames());
+
+		String nodename = processedElement.getName();
+		if (!authoringUnitElements.contains(nodename)) {
+			logger.trace("Not an authoring unit: {}", nodename);
+			return;
+		}
+		String contentSha1 = (String) fields.getFieldValue("c_sha1_source_reuse");
+		Long rev = (Long) fields.getFieldValue("rev");
+		
+		// We don't have the item's doc id here, but we could probably get it with some state sharing between this and item handler
+		String mapid = "" + fields.getFieldValue("repoid") + ((String) fields.getFieldValue("path")).replace(" ", "%20"); // ids use an urlencoded path
+		String mapidrev = "@" + String.format("%010d", rev); // from IdStrategyDefault
+		
+		TreeLocation location = processedElement.getLocation();
+		
+		String patchToChecksum = "MATCH (patch:Patch { id: '{}' })"
+				+ " CREATE UNIQUE (patch)-[:SEES { location : '{}' }]-(content:Content { id: '{}'}) RETURN content";
+		
+		String relation = runCypherTransaction(neo, 
+				MessageFormatter.arrayFormat(patchToChecksum,  new Object[]{ mapid + mapidrev, location, contentSha1 }).getMessage());
+		
+		logger.trace("Response: {}", relation); // {"results":[{"columns":["content"],"data":[]}],"errors":[]}
+		if (relation.contains("\"data\":[{")) {
+			logger.debug("Graph updated for {} {} checksum={}", nodename, location, contentSha1);
+		} else {
+			logger.error("Failed to create a relation for {}->{} at {}. Got {}.", mapid + mapidrev, contentSha1, location, relation);
+		}
+		
+		// After this we should specialize SEES to KEEPS, ADDS, etc
+	}
+
+	@Override
+	public void endDocument() {
+	}
+	
+	/**
+	 * @param cypher without double quotes, generated without user input
+	 * @return neo4j REST response
+	 */
+	static String runCypherTransaction(WebTarget neo, String... cypher) {
+		StringBuffer statements = new StringBuffer("{\"statements\" : [");
+		for (int i = 0; i < cypher.length; i++) {
+			if (i > 0) {
+				statements.append(',');
+			}
+			statements.append("{\"statement\":\"").append(cypher[i]).append("\"}");
+		}
+		statements.append("]}");
+		Response runAndCommit = neo.path("transaction/commit/")
+				.request(MediaType.APPLICATION_JSON)
+			    .post(Entity.entity(statements.toString(), MediaType.APPLICATION_JSON));
+		logger.debug("Status {} from {}", runAndCommit.getStatus(), statements);
+		String response = runAndCommit.readEntity(String.class);
+		return response;
+	}	
 
 }
