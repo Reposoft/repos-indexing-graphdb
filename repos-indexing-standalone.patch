@@ -82,7 +82,7 @@ Index: src/main/java/se/repos/indexing/standalone/config/ParentModule.java
 ===================================================================
 --- src/main/java/se/repos/indexing/standalone/config/ParentModule.java	(revision 738)
 +++ src/main/java/se/repos/indexing/standalone/config/ParentModule.java	(working copy)
-@@ -3,9 +3,18 @@
+@@ -3,9 +3,20 @@
   */
  package se.repos.indexing.standalone.config;
  
@@ -95,13 +95,15 @@ Index: src/main/java/se/repos/indexing/standalone/config/ParentModule.java
  import org.apache.solr.client.solrj.SolrServer;
  import org.tmatesoft.svn.core.wc.admin.SVNLookClient;
  
++import se.repos.indexing.graphdb.neo4j.CypherTransaction;
 +import se.repos.indexing.graphdb.neo4j.Neo4jClientJaxrsProvider;
 +import se.repos.indexing.graphdb.neo4j.Neo4jIndices;
 +import se.repos.indexing.graphdb.neo4j.Neo4jIndicesCypherConstraints;
++import se.repos.indexing.graphdb.neo4j.tx.CypherTransactionProviderRestJsonBatch;
  import se.repos.indexing.scheduling.IndexingSchedule;
  import se.repos.indexing.scheduling.IndexingScheduleBlockingOnly;
  import se.simonsoft.cms.backend.svnkit.svnlook.CmsRepositoryLookupSvnkitLook;
-@@ -13,6 +22,7 @@
+@@ -13,6 +24,7 @@
  import se.simonsoft.cms.item.info.CmsRepositoryLookup;
  
  import com.google.inject.AbstractModule;
@@ -109,7 +111,7 @@ Index: src/main/java/se/repos/indexing/standalone/config/ParentModule.java
  import com.google.inject.name.Names;
  
  public class ParentModule extends AbstractModule {
-@@ -32,6 +42,20 @@
+@@ -32,6 +44,21 @@
  		// this is an all-inspection context
  		bind(SVNLookClient.class).toProvider(SvnlookClientProviderStateless.class);
  		bind(CmsRepositoryLookup.class).to(CmsRepositoryLookupSvnkitLook.class);
@@ -119,10 +121,11 @@ Index: src/main/java/se/repos/indexing/standalone/config/ParentModule.java
 +				// techdoc
 +				"p", "title", "figuretext",
 +				// checksheets
-+				"title", "description", "rule"
++				"title", "description", "summary", "reply"
 +				)));
 +		// graphdb
 +		bind(WebTarget.class).annotatedWith(Names.named("neo4j")).toProvider(Neo4jClientJaxrsProvider.class); // TODO as singleton?
++		bind(CypherTransaction.class).toProvider(CypherTransactionProviderRestJsonBatch.class);
 +		// initialize constraints and indexes
 +		bind(Neo4jIndices.class).to(Neo4jIndicesCypherConstraints.class)
 +			// at startup

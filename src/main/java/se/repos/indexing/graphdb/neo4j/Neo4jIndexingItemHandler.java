@@ -1,10 +1,13 @@
 package se.repos.indexing.graphdb.neo4j;
 
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 
 import javax.inject.Inject;
 import javax.inject.Named;
+import javax.inject.Provider;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.MediaType;
@@ -19,12 +22,19 @@ import se.repos.indexing.IndexingItemHandler;
 import se.repos.indexing.item.IndexingItemProgress;
 import se.simonsoft.cms.indexing.xml.XmlIndexFieldExtraction;
 import se.simonsoft.cms.item.CmsItemPath;
+import se.simonsoft.cms.item.CmsRepository;
+import se.simonsoft.cms.item.indexing.IdStrategy;
 import se.simonsoft.cms.xmlsource.TreeLocation;
 import se.simonsoft.cms.xmlsource.handler.XmlNotWellFormedException;
 import se.simonsoft.cms.xmlsource.handler.XmlSourceElement;
 
 /**
  * Handles both Item and XML.
+ * 
+ * This class meets our fixed design for CMS-to-graph, i.e. predictable Graph insertions.
+ * Analysis and best effort relations is done in a javascript layer (possibly a node CLI utility) where JSON response parsing is simpler.
+ * 
+ * Syntax choices made:
  * 
  * Ruled out http://neo4j.com/docs/stable/batchinsert-examples.html because it seems to need a lock on the DB dir.
  * 
@@ -46,14 +56,18 @@ public class Neo4jIndexingItemHandler implements IndexingItemHandler, XmlIndexFi
 
 	private static final Logger logger = LoggerFactory.getLogger(Neo4jIndexingItemHandler.class);
 	
-	private WebTarget neo;
+	private Provider<CypherTransaction> neo;
+
+	private IdStrategy idStrategy;	
 	
 	private Set<String> authoringUnitElements;
 
 	@Inject
-	public Neo4jIndexingItemHandler(@Named("neo4j") WebTarget neo4j,
+	public Neo4jIndexingItemHandler(Provider<CypherTransaction> neo4j,
+			IdStrategy idStrategy,
 			@Named("config:se.repos.indexing.authoringUnitElements") Set<String> authoringUnitElements) {
 		this.neo = neo4j;
+		this.idStrategy = idStrategy;
 		this.authoringUnitElements = authoringUnitElements;
 	}
 	
@@ -87,33 +101,48 @@ public class Neo4jIndexingItemHandler implements IndexingItemHandler, XmlIndexFi
 	 * Cooperates with {@link Neo4jIndexingItemXmlElementHandler}.
 	 */
 	public void handleStructuredData(IndexingItemProgress progress) {
+		CmsRepository repo = progress.getRepository();
 		IndexingDoc fields = progress.getFields();
-				
-		String map = "MERGE (map:Map { id: '{}' }) RETURN map";
-		String patch = "MERGE (patch:Patch { id: '{}', revt: '{}' }) RETURN patch"; // TODO could be unique
-		String patchRelation = "MATCH (map:Map),(patch:Patch)"
-				+ " WHERE map.id = '{}' AND patch.id = '{}'"
-				+ " CREATE (map)-[r:HAS]->(patch) RETURN r";
+		knowsRepo(fields, repo);
 		
 		String mapid = (String) fields.getFieldValue("idhead");
 		String patchid = (String) fields.getFieldValue("id");
-		String response = runCypherTransaction(neo,
-				MessageFormatter.format(map, mapid).getMessage()
-				,MessageFormatter.format(patch, patchid, fields.getFieldValue("revt")).getMessage()
-				,MessageFormatter.format(patchRelation, mapid, patchid).getMessage()
-				);
-		logger.debug("Patch creation {}->{} result: {}", mapid, patchid, response);
+		
+		CypherTransaction tx = neo.get();
+		
+		// If we didn't have the mapid we could use CREATE UNIQUE here
+		if (progress.getItem().isAdd()) {
+			tx.addStatement("CREATE (map:Map { id: mapid }) RETURN map")
+				.prop("id", mapid);
+		}
+		// We know that patch is unique (and there should be uniquness constraints to verify that)
+		tx.addStatement("CREATE (patch:Patch { id: patchid, revt: revt }) RETURN patch")
+			.prop(patchid, patchid);
+		// I guess the above could be chained to avoid another lookup, but here we go
+		tx.addStatement("MATCH (map:Map),(patch:Patch)"
+				+ " WHERE map.id = mapid AND patch.id = patchid"
+				+ " CREATE (map)-[r:MOD]->(patch) RETURN r")
+			.prop("mapid", mapid)
+			.prop("patchid", patchid);
 		
 		if (progress.getItem().isCopy()) {
 			// Assumptions/limitations: Copy is not historical + copy has no modifications.
 			CmsItemPath from = progress.getItem().getCopyFromPath();
 			
+			String fromMap = getMapId((String) fields.getFieldValue("repoid"), from);
+			String copyRelation = "MATCH (mapf:Map),(mapt:Map)"
+					+ " WHERE mapf.id = '{}' AND mapt.id = '{}'"
+					+ " CREATE (mapf)-[r:COPY]->(mapt) RETURN r";
+			String copyResponse = runCypherTransaction(neo,
+					MessageFormatter.format(copyRelation, fromMap, mapid).getMessage());
+			logger.debug("Relation for copy {}->{}: {}", fromMap, mapid, copyResponse);
 		}
 	}
 	
 	@Override
 	public void extract(XmlSourceElement processedElement, IndexingDoc fields)
 			throws XmlNotWellFormedException {
+		CmsRepository repo = processedEl.getRepository();
 
 		//logger.trace("Graphdb content unit indexing can use: {}", fields.getFieldNames());
 
@@ -126,8 +155,8 @@ public class Neo4jIndexingItemHandler implements IndexingItemHandler, XmlIndexFi
 		Long rev = (Long) fields.getFieldValue("rev");
 		
 		// We don't have the item's doc id here, but we could probably get it with some state sharing between this and item handler
-		String mapid = "" + fields.getFieldValue("repoid") + ((String) fields.getFieldValue("path")).replace(" ", "%20"); // ids use an urlencoded path
-		String mapidrev = "@" + String.format("%010d", rev); // from IdStrategyDefault
+		String mapid = getMapId((String) fields.getFieldValue("repoid"), (String) fields.getFieldValue("path"), null);
+		String mapidrev = getMapId((String) fields.getFieldValue("repoid"), (String) fields.getFieldValue("path"), rev);
 		
 		TreeLocation location = processedElement.getLocation();
 		
@@ -146,9 +175,23 @@ public class Neo4jIndexingItemHandler implements IndexingItemHandler, XmlIndexFi
 		
 		// After this we should specialize SEES to KEEPS, ADDS, etc
 	}
-
+	
 	@Override
 	public void endDocument() {
+	}
+	
+	// Can't know the repository instance from element indexing with current API, need it for ID creation
+	private final Map<String, CmsRepository> repoids = new HashMap<String, CmsRepository>();
+	
+	/**
+	 * Use a field present in both item and XML indexing to keep a reference to CmsRepository.
+	 */
+	private void knowsRepo(IndexingDoc fields, CmsRepository repository) {
+		repoids.put((String) fields.getFieldValue("repoid"), repository);
+	}
+	
+	private CmsRepository getKnownRepo(IndexingDoc fields) {
+		return repoids.get(fields.getFieldValue("repoid"));
 	}
 	
 	/**
