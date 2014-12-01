@@ -1,6 +1,7 @@
 package se.repos.indexing.graphdb.neo4j;
 
 import java.util.Collection;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -19,10 +20,12 @@ import org.slf4j.helpers.MessageFormatter;
 
 import se.repos.indexing.IndexingDoc;
 import se.repos.indexing.IndexingItemHandler;
+import se.repos.indexing.graphdb.GraphConfiguration;
 import se.repos.indexing.item.IndexingItemProgress;
 import se.simonsoft.cms.indexing.xml.XmlIndexFieldExtraction;
 import se.simonsoft.cms.item.CmsItemPath;
 import se.simonsoft.cms.item.CmsRepository;
+import se.simonsoft.cms.item.RepoRevision;
 import se.simonsoft.cms.item.indexing.IdStrategy;
 import se.simonsoft.cms.xmlsource.TreeLocation;
 import se.simonsoft.cms.xmlsource.handler.XmlNotWellFormedException;
@@ -105,44 +108,54 @@ public class Neo4jIndexingItemHandler implements IndexingItemHandler, XmlIndexFi
 		IndexingDoc fields = progress.getFields();
 		knowsRepo(fields, repo);
 		
-		String mapid = (String) fields.getFieldValue("idhead");
+		String docid = (String) fields.getFieldValue("idhead");
 		String patchid = (String) fields.getFieldValue("id");
 		
 		CypherTransaction tx = neo.get();
 		
 		// If we didn't have the mapid we could use CREATE UNIQUE here
 		if (progress.getItem().isAdd()) {
-			tx.addStatement("CREATE (map:Map { id: mapid }) RETURN map")
-				.prop("id", mapid);
+			tx.addStatement("CREATE (doc:Document { id: docid }) RETURN doc")
+				.prop("id", docid);
 		}
 		// We know that patch is unique (and there should be uniquness constraints to verify that)
 		tx.addStatement("CREATE (patch:Patch { id: patchid, revt: revt }) RETURN patch")
 			.prop(patchid, patchid);
 		// I guess the above could be chained to avoid another lookup, but here we go
-		tx.addStatement("MATCH (map:Map),(patch:Patch)"
-				+ " WHERE map.id = mapid AND patch.id = patchid"
-				+ " CREATE (map)-[r:MOD]->(patch) RETURN r")
-			.prop("mapid", mapid)
+		tx.addStatement("MATCH (doc:Document),(patch:Patch)"
+				+ " WHERE doc.id = docid AND patch.id = patchid"
+				+ " CREATE (doc)-[r:MOD]->(patch) RETURN r")
+			.prop("docid", docid)
 			.prop("patchid", patchid);
 		
 		if (progress.getItem().isCopy()) {
 			// Assumptions/limitations: Copy is not historical + copy has no modifications.
 			CmsItemPath from = progress.getItem().getCopyFromPath();
 			
-			String fromMap = getMapId((String) fields.getFieldValue("repoid"), from);
-			String copyRelation = "MATCH (mapf:Map),(mapt:Map)"
-					+ " WHERE mapf.id = '{}' AND mapt.id = '{}'"
-					+ " CREATE (mapf)-[r:COPY]->(mapt) RETURN r";
-			String copyResponse = runCypherTransaction(neo,
-					MessageFormatter.format(copyRelation, fromMap, mapid).getMessage());
-			logger.debug("Relation for copy {}->{}: {}", fromMap, mapid, copyResponse);
+			// Assume for now that copy is not historical
+			//RepoRevision fromrev = progress.getItem().getCopyFromRevision();
+			//String fromrevid = idStrategy.getId(repo, fromrev, from);
+			String fromid = idStrategy.getIdHead(repo, from);
+			
+			String stat = (String) fields.getFieldValue("pathstat");
+			if (!"A".equals(stat)) {
+				logger.warn("Avoiding graph indexing for copy-with-modification {} {}", stat, from);
+			} else {
+				tx.addStatement("MATCH (from:Document),(to:Document)"
+						+ " WHERE from.id = fromid AND to.id = docid"
+						+ " CREATE (from)-[r:COPY]-(to) RETURN r")
+					.prop("fromid", fromid)
+					.prop("docid", docid);
+			}
 		}
+		
+		logger.info("Graph commit: {}", tx.run().json());
 	}
 	
 	@Override
 	public void extract(XmlSourceElement processedElement, IndexingDoc fields)
 			throws XmlNotWellFormedException {
-		CmsRepository repo = processedEl.getRepository();
+		CmsRepository repo = getKnownRepo(fields);
 
 		//logger.trace("Graphdb content unit indexing can use: {}", fields.getFieldNames());
 
@@ -151,26 +164,28 @@ public class Neo4jIndexingItemHandler implements IndexingItemHandler, XmlIndexFi
 			logger.trace("Not an authoring unit: {}", nodename);
 			return;
 		}
-		String contentSha1 = (String) fields.getFieldValue("c_sha1_source_reuse");
-		Long rev = (Long) fields.getFieldValue("rev");
+		String contentMatchId = (String) fields.getFieldValue(GraphConfiguration.CONTENT_MATCH_FIELD);
 		
 		// We don't have the item's doc id here, but we could probably get it with some state sharing between this and item handler
-		String mapid = getMapId((String) fields.getFieldValue("repoid"), (String) fields.getFieldValue("path"), null);
-		String mapidrev = getMapId((String) fields.getFieldValue("repoid"), (String) fields.getFieldValue("path"), rev);
+		CmsItemPath docpath = new CmsItemPath((String) fields.getFieldValue("path"));
+		RepoRevision docrev = new RepoRevision((Long) fields.getFieldValue("rev"), (Date) fields.getFieldValue("revt"));
+		String docid = idStrategy.getIdHead(repo, docpath);
+		String docidrev = idStrategy.getId(repo, docrev, docpath);
 		
 		TreeLocation location = processedElement.getLocation();
 		
-		String patchToChecksum = "MATCH (patch:Patch { id: '{}' })"
-				+ " CREATE UNIQUE (patch)-[:SEES { location : '{}' }]-(content:Content { id: '{}'}) RETURN content";
+		CypherTransaction tx = neo.get();
 		
-		String relation = runCypherTransaction(neo, 
-				MessageFormatter.arrayFormat(patchToChecksum,  new Object[]{ mapid + mapidrev, location, contentSha1 }).getMessage());
+		tx.addStatement("MATCH (patch:Patch { id: patchid })"
+				+ " CREATE UNIQUE (patch)-[:SEES { location : location }]-(content:Content { id: contentid }) RETURN content");
+		
+		Object relation = tx.run().json();
 		
 		logger.trace("Response: {}", relation); // {"results":[{"columns":["content"],"data":[]}],"errors":[]}
-		if (relation.contains("\"data\":[{")) {
-			logger.debug("Graph updated for {} {} checksum={}", nodename, location, contentSha1);
+		if (relation.toString().contains("\"data\":[{")) {
+			logger.debug("Graph updated for {} {} checksum={}", nodename, location, contentMatchId);
 		} else {
-			logger.error("Failed to create a relation for {}->{} at {}. Got {}.", mapid + mapidrev, contentSha1, location, relation);
+			logger.error("Failed to create a relation for {}->{} at {}. Got {}.", docid + docidrev, contentMatchId, location, relation);
 		}
 		
 		// After this we should specialize SEES to KEEPS, ADDS, etc
@@ -192,27 +207,6 @@ public class Neo4jIndexingItemHandler implements IndexingItemHandler, XmlIndexFi
 	
 	private CmsRepository getKnownRepo(IndexingDoc fields) {
 		return repoids.get(fields.getFieldValue("repoid"));
-	}
-	
-	/**
-	 * @param cypher without double quotes, generated without user input
-	 * @return neo4j REST response
-	 */
-	static String runCypherTransaction(WebTarget neo, String... cypher) {
-		StringBuffer statements = new StringBuffer("{\"statements\" : [");
-		for (int i = 0; i < cypher.length; i++) {
-			if (i > 0) {
-				statements.append(',');
-			}
-			statements.append("{\"statement\":\"").append(cypher[i]).append("\"}");
-		}
-		statements.append("]}");
-		Response runAndCommit = neo.path("transaction/commit/")
-				.request(MediaType.APPLICATION_JSON)
-			    .post(Entity.entity(statements.toString(), MediaType.APPLICATION_JSON));
-		logger.debug("Status {} from {}", runAndCommit.getStatus(), statements);
-		String response = runAndCommit.readEntity(String.class);
-		return response;
 	}	
 
 }

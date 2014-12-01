@@ -29,7 +29,7 @@ Noteworthy:
 * Allows Content nodes to have children, for example a section's content may be the title.
 * The model defines the insertion points for child Content, either a fixed number and order of children or a single point for 0+ children.
 
-## Definition of Map
+## Definition of Map (or Document)
 
 Has Revisions or Commits? See MapRevision javadoc in se.repos.se.indexing.graphdb.neo4j.GraphdbLabels
 
