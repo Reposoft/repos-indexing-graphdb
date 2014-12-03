@@ -1,6 +1,6 @@
 Index: pom.xml
 ===================================================================
---- pom.xml	(revision 738)
+--- pom.xml	(revision 742)
 +++ pom.xml	(working copy)
 @@ -52,6 +52,12 @@
  			<groupId>se.repos</groupId>
@@ -18,7 +18,7 @@ Index: pom.xml
 @@ -74,7 +80,19 @@
  			<groupId>se.simonsoft</groupId>
  			<artifactId>cms-indexing-xml</artifactId>
- 			<version>0.11.7</version>
+ 			<version>0.14-SNAPSHOT</version>
 +			<exclusions>
 +				<!-- using JAX-RS 2 (Client) in this module -->
 +				<exclusion>
@@ -56,7 +56,7 @@ Index: pom.xml
  				<artifactId>maven-assembly-plugin</artifactId>
 Index: src/main/java/se/repos/indexing/standalone/config/IndexingHandlersModuleXml.java
 ===================================================================
---- src/main/java/se/repos/indexing/standalone/config/IndexingHandlersModuleXml.java	(revision 738)
+--- src/main/java/se/repos/indexing/standalone/config/IndexingHandlersModuleXml.java	(revision 742)
 +++ src/main/java/se/repos/indexing/standalone/config/IndexingHandlersModuleXml.java	(working copy)
 @@ -5,6 +5,8 @@
  
@@ -80,7 +80,7 @@ Index: src/main/java/se/repos/indexing/standalone/config/IndexingHandlersModuleX
  
 Index: src/main/java/se/repos/indexing/standalone/config/ParentModule.java
 ===================================================================
---- src/main/java/se/repos/indexing/standalone/config/ParentModule.java	(revision 738)
+--- src/main/java/se/repos/indexing/standalone/config/ParentModule.java	(revision 742)
 +++ src/main/java/se/repos/indexing/standalone/config/ParentModule.java	(working copy)
 @@ -3,9 +3,20 @@
   */
@@ -135,7 +135,7 @@ Index: src/main/java/se/repos/indexing/standalone/config/ParentModule.java
  }
 Index: src/main/resources/log4j2.xml
 ===================================================================
---- src/main/resources/log4j2.xml	(revision 738)
+--- src/main/resources/log4j2.xml	(revision 742)
 +++ src/main/resources/log4j2.xml	(working copy)
 @@ -14,6 +14,20 @@
  		</Console>
