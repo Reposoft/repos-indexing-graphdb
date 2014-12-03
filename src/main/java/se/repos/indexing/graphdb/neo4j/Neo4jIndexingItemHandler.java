@@ -202,11 +202,22 @@ public class Neo4jIndexingItemHandler implements IndexingItemHandler, XmlIndexFi
 	 * Use a field present in both item and XML indexing to keep a reference to CmsRepository.
 	 */
 	private void knowsRepo(IndexingDoc fields, CmsRepository repository) {
+		if (repository == null) {
+			throw new IllegalArgumentException("Repository must be set");
+		}
+		if (fields.getFieldValue("repoid") == null) {
+			throw new IllegalArgumentException("Field 'repoid' is required");
+		}
 		repoids.put((String) fields.getFieldValue("repoid"), repository);
 	}
 	
 	private CmsRepository getKnownRepo(IndexingDoc fields) {
-		return repoids.get(fields.getFieldValue("repoid"));
-	}	
+		Object id = fields.getFieldValue("repoid");
+		CmsRepository repo = repoids.get(id);
+		if (repo == null) {
+			throw new IllegalArgumentException("No repository known for repoid '" + id + "'. Document not indexed yet?");
+		}
+		return repo;
+	}
 
 }

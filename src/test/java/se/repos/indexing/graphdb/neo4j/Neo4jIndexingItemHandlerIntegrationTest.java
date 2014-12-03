@@ -17,6 +17,7 @@ import se.repos.indexing.graphdb.neo4j.Neo4jIndexingItemHandler;
 import se.repos.indexing.graphdb.neo4j.tx.CypherTransactionProviderRestJsonBatch;
 import se.repos.indexing.item.IndexingItemProgress;
 import se.repos.indexing.twophases.IndexingDocIncrementalSolrj;
+import se.simonsoft.cms.item.CmsRepository;
 import se.simonsoft.cms.item.events.change.CmsChangesetItem;
 import se.simonsoft.cms.item.indexing.IdStrategy;
 import se.simonsoft.cms.item.indexing.IdStrategyDefault;
@@ -34,7 +35,7 @@ public class Neo4jIndexingItemHandlerIntegrationTest {
 				// techdoc
 				"p","title","figuretext",
 				// checksheets
-				"rule"));		
+				"rule"));
 		Neo4jIndexingItemHandler handler = new Neo4jIndexingItemHandler(
 				txProvider,
 				idStrategy,
@@ -44,11 +45,13 @@ public class Neo4jIndexingItemHandlerIntegrationTest {
 		
 		CmsChangesetItem item = mock(CmsChangesetItem.class);
 		IndexingDoc doc = new IndexingDocIncrementalSolrj();
+		when(progress.getRepository()).thenReturn(new CmsRepository("https://x.y/svn/r1"));
 		when(progress.getFields()).thenReturn(doc);
 		when(progress.getItem()).thenReturn(item);
 		when(item.isFile()).thenReturn(true);
 		
 		doc.addField("flag", "hasxml");
+		doc.setField("repoid", "r1");
 		doc.addField("id", "some/file.xml@0000000001");
 		doc.addField("idhead", "some/file.xml");
 		doc.addField("path", "/some/file.xml");
@@ -62,7 +65,7 @@ public class Neo4jIndexingItemHandlerIntegrationTest {
 		when(el1.getName()).thenReturn("p");
 		when(el1.getLocation()).thenReturn(new TreeLocation("1.20.1.2"));
 		IndexingDoc xml1 = new IndexingDocIncrementalSolrj();
-		xml1.setField("repoid", "");
+		xml1.setField("repoid", "r1");
 		xml1.setField("path", "/some/file.xml");
 		xml1.setField("rev", 1L);
 		xml1.setField("c_sha1_source_reuse", "aaaaaaa1");

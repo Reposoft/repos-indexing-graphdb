@@ -111,28 +111,35 @@ public class CypherTransactionProviderRestJsonBatch implements Provider<CypherTr
 			parameters.put("props", props);
 		}
 
+		private Cypher put(String name, Object value) {
+			if (name == null) {
+				throw new IllegalArgumentException("Property name is required");
+			}
+			if (value == null) {
+				throw new IllegalArgumentException("Property value can not be null");
+			}
+			props.put(name, name);
+			return this;
+		}
+		
 		@Override
 		public Cypher prop(String name, String value) {
-			props.put(name, value);
-			return this;
+			return put(name, value);
 		}
 
 		@Override
 		public Cypher prop(String name, Long value) {
-			props.put(name, value);
-			return null;
+			return put(name, value);
 		}
 
 		@Override
 		public Cypher prop(String name, Boolean value) {
-			props.put(name, value);
-			return null;
+			return put(name, value);
 		}
 
 		@Override
 		public Cypher prop(String name, Date value) {
-			props.put(name, CYPHER_JSON_DATE_FORMAT.format(value));
-			return null;
+			return put(name, CYPHER_JSON_DATE_FORMAT.format(value));
 		}
 		
 		private JSONObject toJSON() {
