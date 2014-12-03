@@ -116,11 +116,14 @@ public class Neo4jIndexingItemHandler implements IndexingItemHandler, XmlIndexFi
 		// If we didn't have the mapid we could use CREATE UNIQUE here
 		if (progress.getItem().isAdd()) {
 			tx.addStatement("CREATE (doc:Document { id: docid }) RETURN doc")
-				.prop("id", docid);
+				.prop("docid", docid);
 		}
+		
 		// We know that patch is unique (and there should be uniquness constraints to verify that)
 		tx.addStatement("CREATE (patch:Patch { id: patchid, revt: revt }) RETURN patch")
-			.prop(patchid, patchid);
+			.prop("patchid", patchid)
+			.prop("revt", (Date) fields.getFieldValue("revt"));
+		
 		// I guess the above could be chained to avoid another lookup, but here we go
 		tx.addStatement("MATCH (doc:Document),(patch:Patch)"
 				+ " WHERE doc.id = docid AND patch.id = patchid"

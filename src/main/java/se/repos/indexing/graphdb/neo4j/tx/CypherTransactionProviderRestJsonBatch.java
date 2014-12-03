@@ -49,6 +49,13 @@ public class CypherTransactionProviderRestJsonBatch implements Provider<CypherTr
 		return new Tx();
 	}
 	
+	protected Response runJson(JSONObject body) {
+		Response response = neo.path(SERVICE)
+				.request(MediaType.APPLICATION_JSON)
+			    .post(Entity.entity(body.toJSONString(), MediaType.APPLICATION_JSON));
+		return response;
+	}
+	
 	private class Tx implements CypherTransaction {
 
 		private LinkedList<CypherJSONObject> statements = new LinkedList<CypherJSONObject>();
@@ -71,14 +78,16 @@ public class CypherTransactionProviderRestJsonBatch implements Provider<CypherTr
 
 		@Override
 		public ReadContext run() {
+			if (statements.size() == 0) {
+				throw new IllegalStateException("No statements have been added");
+			}
 			checkClosed();
 			closed = true;
 			JSONObject body = getRequestBody();
-			Response response = neo.path(SERVICE)
-					.request(MediaType.APPLICATION_JSON)
-				    .post(Entity.entity(body.toJSONString(), MediaType.APPLICATION_JSON));
+			Response response = runJson(body);
 			logger.debug("Status {} from {}", response.getStatus(), body.toJSONString());
 			String responseBody = response.readEntity(String.class);
+			logger.debug("Response body: {}", responseBody);
 			ReadContext responseJson = JsonPath.parse(responseBody);
 			return responseJson;
 		}
@@ -104,11 +113,10 @@ public class CypherTransactionProviderRestJsonBatch implements Provider<CypherTr
 		
 		public CypherJSONObject(String statement) {
 			this.statement = new JSONObject();
-			this.statement.put("statement", statement);
-			JSONObject parameters = new JSONObject();
-			this.statement.put("parameters", parameters);
 			this.props = new JSONObject();
-			parameters.put("props", props);
+			this.statement.put("statement", statement);
+			// TODO for props to new objects there should be another level "props" object here, but can we also set parameters for WHERE etc?
+			this.statement.put("parameters", props);
 		}
 
 		private Cypher put(String name, Object value) {
@@ -118,7 +126,7 @@ public class CypherTransactionProviderRestJsonBatch implements Provider<CypherTr
 			if (value == null) {
 				throw new IllegalArgumentException("Property value can not be null");
 			}
-			props.put(name, name);
+			props.put(name, value);
 			return this;
 		}
 		

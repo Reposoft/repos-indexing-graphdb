@@ -4,6 +4,7 @@ import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
 
 import java.util.Arrays;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -49,6 +50,7 @@ public class Neo4jIndexingItemHandlerIntegrationTest {
 		when(progress.getFields()).thenReturn(doc);
 		when(progress.getItem()).thenReturn(item);
 		when(item.isFile()).thenReturn(true);
+		when(item.isAdd()).thenReturn(true);
 		
 		doc.addField("flag", "hasxml");
 		doc.setField("repoid", "r1");
@@ -56,7 +58,7 @@ public class Neo4jIndexingItemHandlerIntegrationTest {
 		doc.addField("idhead", "some/file.xml");
 		doc.addField("path", "/some/file.xml");
 		doc.addField("rev", 1L);
-		doc.addField("revt", System.currentTimeMillis());
+		doc.addField("revt", new Date());
 		handler.handle(progress);
 		
 		// Nodes
